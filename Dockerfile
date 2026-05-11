@@ -1,6 +1,6 @@
 FROM php:8.3-apache
 
-# Встановлення системних залежностей
+# Встановлення системних залежностей (включно з libpq-dev для PostgreSQL)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libpq-dev \
     zip \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Встановлення PHP-розширень
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+# Встановлення PHP-розширень (з pdo_pgsql для PostgreSQL)
+RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # Увімкнення mod_rewrite для Apache
 RUN a2enmod rewrite
