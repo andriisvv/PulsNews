@@ -17,8 +17,7 @@ RUN apt-get update && apt-get install -y \
 RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # Увімкнення mod_rewrite для Apache
-RUN a2dismod mpm_event mpm_worker 2>/dev/null || true \
-    && a2enmod mpm_prefork rewrite
+RUN a2dismod mpm_event 2>/dev/null; a2dismod mpm_worker 2>/dev/null; a2enmod mpm_prefork rewrite; true
 
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
