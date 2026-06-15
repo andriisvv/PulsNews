@@ -1,30 +1,43 @@
 #!/usr/bin/env bash
 set -e
 
-# Кешуємо конфіг
+# ─── Railway передає динамічний PORT; локально за замовчуванням 80 ───
+PORT="${PORT:-80}"
+sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
+sed -i "s/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/g" /etc/apache2/sites-available/000-default.conf
+
+# ─── Міграції бази даних ───
+php artisan migrate --force
+
+# ─── Початкове наповнення новинами (лише якщо БД порожня) ───
+php artisan tinker --execute="
+if (\App\Models\News::count() === 0) {
+    Artisan::call('db:seed', ['--class' => 'NewsSeeder', '--force' => true]);
+    echo 'Seeded news';
+} else {
+    echo 'News already present';
+}
+"
+
+# ─── Створення адміністратора (логін/пароль беруться з env-змінних) ───
+php artisan tinker --execute="
+\$email = env('ADMIN_EMAIL', 'admin@pulsnews.com');
+\$password = env('ADMIN_PASSWORD', 'PulseAdmin2026!');
+if (!\App\Models\User::where('email', \$email)->exists()) {
+    \App\Models\User::create(['name' => 'Admin', 'email' => \$email, 'password' => bcrypt(\$password)]);
+    echo 'Admin created: ' . \$email;
+} else {
+    echo 'Admin already exists';
+}
+"
+
+# ─── Симлінк для завантажених зображень ───
+php artisan storage:link || true
+
+# ─── Кешування конфігурації для продакшну ───
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Створюємо симлінк для storage
-php artisan storage:link || true
-
-# Запускаємо міграції
-php artisan migrate --force
-
-# Створюємо адмін-користувача (якщо ще немає)
-php artisan tinker --execute="
-if (!\App\Models\User::where('email', 'admin@pulsnews.com')->exists()) {
-    \App\Models\User::create([
-        'name' => 'Admin',
-        'email' => 'admin@pulsnews.com',
-        'password' => bcrypt('PulseAdmin2026!'),
-    ]);
-    echo 'Admin user created';
-} else {
-    echo 'Admin user already exists';
-}
-"
-
-# Стартуємо Apache
+# ─── Старт Apache ───
 apache2-foreground
