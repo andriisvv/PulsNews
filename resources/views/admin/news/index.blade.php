@@ -9,9 +9,17 @@
             <h1 class="page-title">Усі новини</h1>
             <p class="page-subtitle">Всього записів: {{ $news->total() }}</p>
         </div>
-        <a href="{{ route('admin.news.create') }}" class="btn btn--primary">
-            <i class="ti ti-plus"></i> Нова новина
-        </a>
+        <div style="display: flex; gap: 10px;">
+            <form action="{{ route('admin.news.fetch') }}" method="POST" style="margin: 0;">
+                @csrf
+                <button type="submit" class="btn btn--ghost">
+                    <i class="ti ti-refresh"></i> Оновити з джерел
+                </button>
+            </form>
+            <a href="{{ route('admin.news.create') }}" class="btn btn--primary">
+                <i class="ti ti-plus"></i> Нова новина
+            </a>
+        </div>
     </div>
 
     {{-- Фільтри --}}

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\News;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 
 class AdminController extends Controller
 {
@@ -136,5 +137,18 @@ class AdminController extends Controller
     {
         $news->delete();
         return back()->with('success', 'Новину видалено.');
+    }
+
+    /**
+     * Ручний запуск імпорту новин з RSS-джерел.
+     */
+    public function fetchNews()
+    {
+        Artisan::call('news:fetch');
+        $output = trim(Artisan::output());
+
+        return redirect()
+            ->route('admin.news.index')
+            ->with('success', 'Імпорт новин з RSS-джерел виконано. ' . $output);
     }
 }

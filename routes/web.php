@@ -30,6 +30,9 @@ Route::post('/logout', [AuthController::class, 'logout'])
 Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
+    // Імпорт новин з RSS-джерел (ручний запуск)
+    Route::post('/news/fetch', [AdminController::class, 'fetchNews'])->name('news.fetch');
+
     // CRUD для новин
     Route::get('/news',                [AdminController::class, 'index'])->name('news.index');
     Route::get('/news/create',         [AdminController::class, 'create'])->name('news.create');
