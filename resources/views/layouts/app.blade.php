@@ -63,9 +63,9 @@
                 <p class="footer-tagline">Актуальні новини щодня</p>
             </div>
             <div class="footer-links">
-                <a href="#">Про нас</a>
-                <a href="#">Контакти</a>
-                <a href="#">Реклама</a>
+                <a href="{{ route('about') }}">Про нас</a>
+                <a href="{{ route('contacts') }}">Контакти</a>
+                <a href="{{ route('advertising') }}">Реклама</a>
             </div>
             <div class="footer-copy">© {{ date('Y') }} Pulse. Усі права захищені.</div>
         </footer>

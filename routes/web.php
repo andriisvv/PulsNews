@@ -3,11 +3,18 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NewsController;
+use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Публічні маршрути ─────────────────────────────────
 Route::get('/', [NewsController::class, 'index'])->name('home');
 Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
+
+// ─── Інформаційні сторінки ─────────────────────────────
+Route::get('/about', [PageController::class, 'about'])->name('about');
+Route::get('/advertising', [PageController::class, 'advertising'])->name('advertising');
+Route::get('/contacts', [PageController::class, 'contacts'])->name('contacts');
+Route::post('/contacts', [PageController::class, 'sendContact'])->name('contacts.send');
 
 // ─── Авторизація ───────────────────────────────────────
 Route::middleware('guest')->group(function () {
