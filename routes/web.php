@@ -33,6 +33,11 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     // Імпорт новин з RSS-джерел (ручний запуск)
     Route::post('/news/fetch', [AdminController::class, 'fetchNews'])->name('news.fetch');
 
+    // Повідомлення з форми зворотного звʼязку
+    Route::get('/messages', [AdminController::class, 'messages'])->name('messages.index');
+    Route::patch('/messages/{message}/read', [AdminController::class, 'markMessageRead'])->name('messages.read');
+    Route::delete('/messages/{message}', [AdminController::class, 'destroyMessage'])->name('messages.destroy');
+
     // CRUD для новин
     Route::get('/news',                [AdminController::class, 'index'])->name('news.index');
     Route::get('/news/create',         [AdminController::class, 'create'])->name('news.create');

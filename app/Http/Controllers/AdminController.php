@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContactMessage;
 use App\Models\News;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -20,6 +21,7 @@ class AdminController extends Controller
             'featured'  => News::where('is_featured', true)->count(),
             'manual'    => News::where('source', 'manual')->count(),
             'api'       => News::where('source', '!=', 'manual')->count(),
+            'messages'  => ContactMessage::where('is_read', false)->count(),
         ];
 
         $latest = News::orderBy('created_at', 'desc')->limit(5)->get();
@@ -137,6 +139,36 @@ class AdminController extends Controller
     {
         $news->delete();
         return back()->with('success', 'Новину видалено.');
+    }
+
+    /**
+     * Список повідомлень з форми зворотного звʼязку
+     */
+    public function messages()
+    {
+        $messages = ContactMessage::orderBy('created_at', 'desc')->paginate(15);
+
+        return view('admin.messages.index', compact('messages'));
+    }
+
+    /**
+     * Позначити повідомлення як прочитане
+     */
+    public function markMessageRead(ContactMessage $message)
+    {
+        $message->update(['is_read' => true]);
+
+        return back()->with('success', 'Повідомлення позначено як прочитане.');
+    }
+
+    /**
+     * Видалити повідомлення
+     */
+    public function destroyMessage(ContactMessage $message)
+    {
+        $message->delete();
+
+        return back()->with('success', 'Повідомлення видалено.');
     }
 
     /**

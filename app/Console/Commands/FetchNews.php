@@ -11,24 +11,33 @@ use Illuminate\Support\Str;
 class FetchNews extends Command
 {
     /**
-     * Сигнатура команди: php artisan news:fetch
+     * php artisan news:fetch          — додати свіжі новини
+     * php artisan news:fetch --fresh  — спершу видалити раніше імпортовані
      */
-    protected $signature = 'news:fetch {--limit=8 : Скільки новин брати з кожної стрічки}';
+    protected $signature = 'news:fetch
+                            {--limit=8 : Скільки новин брати з кожної стрічки}
+                            {--fresh : Видалити раніше імпортовані новини перед оновленням}';
 
     protected $description = 'Імпортує свіжі новини з RSS-стрічок українських видань';
 
     /**
-     * Перелік RSS-джерел. Кожному призначено категорію сайту.
-     * Якщо якась стрічка недоступна — вона просто пропускається.
+     * Українські RSS-джерела. Кожному призначено категорію сайту.
+     * Недоступні стрічки автоматично пропускаються.
      */
     private array $feeds = [
         ['url' => 'https://www.pravda.com.ua/rss/',  'category' => 'Світ',       'source' => 'Українська правда'],
         ['url' => 'https://www.epravda.com.ua/rss/', 'category' => 'Економіка',  'source' => 'Економічна правда'],
-        ['url' => 'https://itc.ua/feed/',            'category' => 'Технології', 'source' => 'ITC.ua'],
+        ['url' => 'https://life.pravda.com.ua/rss/', 'category' => 'Культура',   'source' => 'УП Життя'],
+        ['url' => 'https://ain.ua/feed/',            'category' => 'Технології', 'source' => 'AIN.ua'],
     ];
 
     public function handle(): int
     {
+        if ($this->option('fresh')) {
+            $deleted = News::where('source', '!=', 'manual')->delete();
+            $this->warn("Видалено раніше імпортованих новин: {$deleted}");
+        }
+
         $limit   = (int) $this->option('limit');
         $created = 0;
 
@@ -59,9 +68,6 @@ class FetchNews extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Розбір XML-стрічки та збереження новин у БД.
-     */
     private function parseFeed(string $body, array $feed, int $limit): int
     {
         libxml_use_internal_errors(true);
@@ -78,7 +84,7 @@ class FetchNews extends Command
                 break;
             }
 
-            $title = trim((string) $item->title);
+            $title = $this->clean((string) $item->title);
             $link  = trim((string) $item->link);
 
             if ($title === '' || $link === '') {
@@ -94,10 +100,18 @@ class FetchNews extends Command
                 continue;
             }
 
-            $descriptionRaw = (string) $item->description;
-            $plain   = trim(strip_tags($descriptionRaw));
-            $excerpt = Str::limit($plain, 280);
-            $content = $plain !== '' ? $plain : $title;
+            // Повний текст: content:encoded, інакше description
+            $contentNs = $item->children('http://purl.org/rss/1.0/modules/content/');
+            $fullHtml  = isset($contentNs->encoded) ? (string) $contentNs->encoded : '';
+            $descHtml  = (string) $item->description;
+            $rawHtml   = $fullHtml !== '' ? $fullHtml : $descHtml;
+
+            $content = $this->clean($rawHtml);
+            $excerpt = Str::limit($this->clean($descHtml), 280);
+
+            if ($content === '') {
+                $content = $title;
+            }
 
             try {
                 $publishedAt = ! empty($item->pubDate)
@@ -107,11 +121,15 @@ class FetchNews extends Command
                 $publishedAt = now();
             }
 
+            // Зображення: зі стрічки, інакше — детермінований плейсхолдер
+            $image = $this->extractImage($item, $rawHtml)
+                ?: 'https://picsum.photos/seed/' . md5($link) . '/800/500';
+
             News::create([
                 'title'        => Str::limit($title, 480, ''),
                 'excerpt'      => $excerpt,
                 'content'      => $content,
-                'image_url'    => $this->extractImage($item, $descriptionRaw),
+                'image_url'    => $image,
                 'category'     => $feed['category'],
                 'source'       => $feed['source'],
                 'external_url' => $link,
@@ -128,11 +146,23 @@ class FetchNews extends Command
     }
 
     /**
-     * Спроба дістати зображення новини: enclosure → media:content → перший <img> в описі.
+     * Очищення тексту: декодування HTML-сутностей (&#38; → &), зняття тегів,
+     * згортання зайвих пробілів.
      */
-    private function extractImage(\SimpleXMLElement $item, string $description): ?string
+    private function clean(string $html): string
     {
-        // 1) <enclosure url="..." />
+        $text = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = strip_tags($text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+
+        return trim($text);
+    }
+
+    /**
+     * Пошук зображення: enclosure → media:content → media:thumbnail → <img> у тексті.
+     */
+    private function extractImage(\SimpleXMLElement $item, string $html): ?string
+    {
         if (isset($item->enclosure['url'])) {
             $url = (string) $item->enclosure['url'];
             if ($url !== '') {
@@ -140,8 +170,8 @@ class FetchNews extends Command
             }
         }
 
-        // 2) <media:content url="..." />
         $media = $item->children('http://search.yahoo.com/mrss/');
+
         if (isset($media->content)) {
             $attrs = $media->content->attributes();
             if (isset($attrs->url) && (string) $attrs->url !== '') {
@@ -149,8 +179,14 @@ class FetchNews extends Command
             }
         }
 
-        // 3) Перший <img> у тексті опису
-        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $description, $m)) {
+        if (isset($media->thumbnail)) {
+            $attrs = $media->thumbnail->attributes();
+            if (isset($attrs->url) && (string) $attrs->url !== '') {
+                return (string) $attrs->url;
+            }
+        }
+
+        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $html, $m)) {
             return $m[1];
         }
 

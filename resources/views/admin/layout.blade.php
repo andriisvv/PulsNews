@@ -27,6 +27,10 @@
                class="sidebar-link {{ request()->routeIs('admin.news.*') ? 'active' : '' }}">
                 <i class="ti ti-news"></i> Новини
             </a>
+            <a href="{{ route('admin.messages.index') }}"
+               class="sidebar-link {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
+                <i class="ti ti-mail"></i> Повідомлення
+            </a>
             <a href="{{ route('admin.news.create') }}" class="sidebar-link">
                 <i class="ti ti-plus"></i> Додати новину
             </a>
