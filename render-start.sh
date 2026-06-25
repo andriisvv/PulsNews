@@ -7,10 +7,15 @@ rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker
 a2enmod mpm_prefork 2>/dev/null || true
 rm -f /var/run/apache2/apache2.pid
 
-# ─── Railway передає динамічний PORT; локально за замовчуванням 80 ───
-PORT="${PORT:-80}"
-sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
-sed -i "s/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/g" /etc/apache2/sites-available/000-default.conf
+# ─── Railway передає динамічний PORT; беремо ЛИШЕ цифри, локально 8080 ───
+PORT="$(printf '%s' "${PORT:-8080}" | tr -cd '0-9')"
+[ -z "$PORT" ] && PORT=8080
+
+# Повністю перезаписуємо ports.conf чистим значенням (без залежності від рядка 5)
+echo "Listen ${PORT}" > /etc/apache2/ports.conf
+
+# Оновлюємо порт у VirtualHost (будь-який поточний номер -> наш PORT)
+sed -i -E "s/<VirtualHost \*:[0-9]+>/<VirtualHost *:${PORT}>/g" /etc/apache2/sites-available/000-default.conf
 
 # ─── Міграції бази даних ───
 php artisan migrate --force
